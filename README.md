@@ -1,4 +1,6 @@
-# Natural-Gas-Consumption
+# Natural Gas Consumption
+Time-series analysis of US natural gas consumption data across 15 years (from Jan 2005 to Dec 2019).
+
 ### Data
 - "NG Consumption.csv": natural gas consumption data by sector; dataset dowloaded from "https://www.eia.gov/totalenergy/data/browser/csv.php?tbl=T04.03"
 			and renamed as it is
