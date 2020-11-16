@@ -1,0 +1,98 @@
+# MANUALLY IMPORT "df_ensembled.xls"
+setobs 12 2005:01 --time-series
+
+# ADD TREND VARIABLE
+genr time
+# ADD SEASONAL DUMMIES
+genr dummy
+# LOGARITHMIC TRANSFORMATION
+logs Value_industrial Value_transportation Value_total
+
+scalar seasonality = 12
+
+string sel_var_name = "l_Value_total"
+
+# pMIN, pMAX; dMIN, dMAX; qMIN, qMAX; PMIN, PMAX; DMIN, DMAX; QMIN, QMAX;
+matrix params_range = {0,4 ; \
+                       0,1 ; \
+                       0,4 ; \ 
+                       0,2 ; \
+                       0,1 ; \
+                       0,2 } 
+
+scalar use_trend = 1
+scalar use_dm = 1
+
+smpl 2010:01 2019:12
+
+# INITIALIZATION
+scalar best_bic = 100000
+scalar curr_bic = 100000
+matrix config = {0, 0, 0, 0, 0, 0}
+
+printf "\n\n\t\tModeling: %s\n\n", sel_var_name
+
+# GRID SEARCH
+set echo off
+set bhhh_toler 1.0E-03
+loop for p=params_range[1,1]..params_range[1,2]
+    loop for d=params_range[2,1]..params_range[2,2]
+        loop for q=params_range[3,1]..params_range[3,2]
+            loop for P=params_range[4,1]..params_range[4,2]
+                loop for D=params_range[5,1]..params_range[5,2]
+                    loop for Q=params_range[6,1]..params_range[6,2]
+                        
+                        # MODELING
+                        if use_dm==0 # SARIMA
+                            if use_trend==1 # with trend
+                                catch arima p d q ; P D Q; l_Value_total 0 time --quiet --conditional
+                            else # without trend
+                                catch arima p d q ; P D Q; l_Value_total 0 --quiet --conditional
+                            endif                         
+                        else # Seasonal dummies
+                            if use_trend==1 # with trend
+                                catch arima p d q ; l_Value_total 0 time dm1 dm2 dm3 dm4 dm5 dm6 dm7 dm8 dm9 dm10 dm11 --quiet --conditional
+                            else # without trend
+                                catch arima p d q ; l_Value_total 0 dm1 dm2 dm3 dm4 dm5 dm6 dm7 dm8 dm9 dm10 dm11 --quiet --conditional
+                            endif                                                                                
+                        endif
+                        
+                        # UPDATE
+                        catch curr_bic = $bic
+                        if curr_bic < best_bic
+                            best_bic = curr_bic
+                            config = {p, d, q, P, D, Q}
+                        endif
+                        
+                    endloop
+                endloop
+            endloop
+        endloop
+    endloop
+endloop
+
+############################################################################################
+
+# PRINT RESULTS
+if use_dm==0 # SARIMA
+    if use_trend==1 # with trend
+        printf "\n\n\n#####   ARIMA MODEL   #####\n\n\nMODELED VARIABLE\n\t%s\nOPTIMUM BIC\n\t%g\nPARAMETERS\n\t(%g,%g,%g)x(%g,%g,%g,%g) with trend\n\n\n###########################\n\n\n"\
+          , sel_var_name, best_bic, config[1], config[2], config[3], config[4], config[5], config[6], seasonality
+    else # without trend
+        printf "\n\n\n#####   ARIMA MODEL   #####\n\n\nMODELED VARIABLE\n\t%s\nOPTIMUM BIC\n\t%g\nPARAMETERS\n\t(%g,%g,%g)x(%g,%g,%g,%g) with NO trend\n\n\n###########################\n\n\n"\
+          , sel_var_name, best_bic, config[1], config[2], config[3], config[4], config[5], config[6], seasonality
+    endif                         
+else # Seasonal dummies
+    if use_trend==1 # with trend
+        printf "\n\n\n#####   ARIMA MODEL   #####\n\n\nMODELED VARIABLE\n\t%s\nOPTIMUM BIC\n\t%g\nPARAMETERS\n\t(%g,%g,%g) with seasonal DUMMIES and trend\n\n\n###########################\n\n\n"\
+          , sel_var_name, best_bic, config[1], config[2], config[3]
+    else # without trend
+        printf "\n\n\n#####   ARIMA MODEL   #####\n\n\nMODELED VARIABLE\n\t%s\nOPTIMUM BIC\n\t%g\nPARAMETERS\n\t(%g,%g,%g) with seasonal DUMMIES and NO trend\n\n\n###########################\n\n\n"\
+          , sel_var_name, best_bic, config[1], config[2], config[3]
+    endif                                                                                
+endif
+                        
+
+
+# VAR model selection
+var 12 l_Value_industrial l_Value_transportation l_Value_total --seasonals --lagselect --trend

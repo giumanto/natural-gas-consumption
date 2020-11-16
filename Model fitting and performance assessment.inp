@@ -1,0 +1,39 @@
+smpl 2010:01 2019:12
+
+# ARIMA model
+arima 1 0 0 ; l_Value_total time 0 dm2 dm3 dm4 dm5 dm6 dm7 dm8 dm9 dm10 dm11 --conditional
+series uhat1_arima = $uhat
+
+# VAR model
+var 1 l_Value_industrial l_Value_transportation l_Value_total --seasonals --trend
+# ACF test for VAR model
+modtest 12 --autocorr
+modtest 12 --autocorr --univariate
+
+# MANUALLY import residuals and assign the right one to uhat_var
+
+series uhat_var = uhat3
+
+
+# Set required sample for measuring forecast performance (last 24 months)
+smpl 2018:01 2019:12
+
+# ME: 1/T * Σi uhat_i
+scalar ME_arima = mean(uhat1_arima)
+scalar ME_var = mean(uhat_var)
+
+# MAE: 1/T * Σi |uhat_i|
+scalar MAE_arima = mean(abs(uhat1_arima))
+scalar MAE_var = mean(abs(uhat_var))
+
+# Compute the square of residuals
+series sq_uhat_arima = uhat1_arima^2
+series sq_uhat_var = uhat_var^2
+# RMSE: sqrt(1/T * Σi sq_uhat_i)
+scalar RMSE_arima = sqrt(mean(sq_uhat_arima))
+scalar RMSE_var = sqrt(mean(sq_uhat_var))
+
+# PRINT
+printf "\n\n\tME ARIMA: %.4g\n\tME VAR  : %.4g\n\n", ME_arima, ME_var
+printf "\n\n\tMAE ARIMA: %.4g\n\tMAE VAR  : %.4g\n\n", MAE_arima, MAE_var
+printf "\n\n\tRMSE ARIMA: %.4g\n\tRMSE VAR  : %.4g\n\n", RMSE_arima, RMSE_var
